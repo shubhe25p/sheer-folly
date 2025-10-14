@@ -47,7 +47,7 @@ static int dev_mmap(struct file *file, struct vm_area_struct *vma) {
     return 0;
 }
 
-static const file_operations fops {
+static const struct file_operations fops {
     .owner = THIS_MODULE,
     .open = dev_open,
     .write = dev_write,
