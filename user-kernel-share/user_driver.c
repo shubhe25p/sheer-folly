@@ -5,7 +5,7 @@
 #include <string.h>
 #include <stdint.h>
 
-#define DEVICE /dev/kernel_driver
+#define DEVICE "/dev/kernel_driver"
 #define PAGE_SIZE 4096
 
 int main() {
