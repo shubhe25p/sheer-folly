@@ -5,6 +5,7 @@
 #include <linux/uaccess.h>
 #include <linux/vmalloc.h>
 #include <linux/string.h>
+#include <linux/err.h>
 
 #define DEVICE_NAME "kernel_driver_mod"
 #define PAGE_SIZE 4096
@@ -43,6 +44,16 @@ static int dev_mmap(struct file *file, struct vm_area_struct *vma) {
     return 0;
 }
 
+static void hello_kernel_fn(void) {
+    printk(KERN_INFO "Kernel thread started.. \n");
+
+    while(!kthread_should_stop()) {
+        break;
+    }
+
+    printk(KERN_INFO "Kernel thread ended.. \n");
+}
+
 static const struct file_operations fops = {
     .owner = THIS_MODULE,
     .open = dev_open,
@@ -53,13 +64,21 @@ static const struct file_operations fops = {
 
 static int __init driver_module_init(void) {
     major = register_chrdev(0, DEVICE_NAME, &fops);
-    if(major < 0)
+    if (major < 0)
         return major;
     
     raw_pg = vmalloc(PAGE_SIZE);
-    if(raw_pg == NULL) {
+    if (raw_pg == NULL) {
         unregister_chrdev(major, DEVICE_NAME);
         return -ENOMEM;
+    }
+
+    kthread_task = kthread_run(hello_kernel_fn, NULL, "dumbest kernel thread alive");
+    if (IS_ERR(kthread_task)) {
+        vfree(raw_pg);
+        unregister_chrdev(major, DEVICE_NAME);
+        printk(KERN_ERR "Failed to start kernel thread: %ld\n", PTR_ERR(kthread_task));
+        return PTR_ERR(kthread_task);
     }
 
     memset(raw_pg, 0, PAGE_SIZE);
@@ -70,7 +89,7 @@ static int __init driver_module_init(void) {
 static void __exit driver_module_exit(void) {
     vfree(raw_pg);
     unregister_chrdev(major, DEVICE_NAME);
-    printk(KERN_INFO "Custom Kernel driver unloaded");
+    printk(KERN_INFO "Custom Kernel driver unloaded\n");
 }
 
 MODULE_LICENSE("GPL");
