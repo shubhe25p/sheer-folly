@@ -22,7 +22,7 @@ int main() {
     }
 
     printf("User space driver reads from shared page: %d\n", (*(uint8_t *)k_page));
-    munmap(addr, PAGE_SIZE);
+    munmap(k_page, PAGE_SIZE);
     close(fd);
     return 0;
 }
