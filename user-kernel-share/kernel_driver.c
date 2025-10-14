@@ -6,7 +6,7 @@
 #include <linux/vmalloc.h>
 #include <linux/string.h>
 
-#define DEVICE_NAME "kernel_driver"
+#define DEVICE_NAME "kernel_driver_mod"
 #define PAGE_SIZE 4096
 
 static int major;
