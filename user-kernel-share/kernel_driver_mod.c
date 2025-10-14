@@ -25,10 +25,6 @@ static int dev_release(struct inode *inode, struct file *file) {
     return 0;
 }
 
-static void dev_close(void) {
-    return;
-}
-
 static int dev_mmap(struct file *file, struct vm_area_struct *vma) {
     unsigned long pfn, size;
     
@@ -52,7 +48,6 @@ static const struct file_operations fops = {
     .open = dev_open,
     .write = dev_write,
     .release = dev_release,
-    .close = dev_close,
     .mmap = dev_mmap,
 };
 
