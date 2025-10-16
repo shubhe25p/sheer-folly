@@ -6,12 +6,14 @@
 #include <linux/vmalloc.h>
 #include <linux/string.h>
 #include <linux/err.h>
+#include <asm/cmpxchg.h>
 
 #define DEVICE_NAME "kernel_driver_mod"
 #define PAGE_SIZE 4096
+#define KERNEL_STR "Hello from Kernel\0"
 
 static int major;
-static void *raw_pg;
+static void *raw_pg, *write_ptr;
 static struct task_struct *kthread_task = NULL;
 
 static int dev_open(struct inode *inode, struct file *file) {
@@ -44,11 +46,45 @@ static int dev_mmap(struct file *file, struct vm_area_struct *vma) {
     return 0;
 }
 
+/*
+ * 2 bytes metadata: 4 bits - lock flag + 12 bits - page size filled
+ * 4094 bytes data
+ */
+static void check_and_set_flag(void) {
+    uint8_t expected, desired;
+    do {
+
+        expected = *(volatile uint8_t *)raw_pg;
+        desired = 0x10 | (expected & 0x0F);
+
+    } while (cmpxchg((uint8_t *)raw_pg, expected, desired) != expected)
+}
+
+static int set_write_ptr(void) {
+    uint16_t curr_sz;
+
+    curr_sz = ((*(uint16_t *)raw_pg) & 0x0FFF);
+    // raw_pg + 2 bytes MD + curr_sz
+    write_ptr = raw_pg + 2 + curr_sz;
+    if (write_ptr > raw_pg + PAGE_SIZE)
+        return 1;
+    return 0;
+}
+
+static void write_string_to_kernel_page(void) {
+    strscpy(write_ptr, KERNEL_STR, sizeof(KERNEL_STR));
+    (*(uint16_t *)raw_pg) = ((*(uint16_t *)raw_pg) & 0x0FFF) + (uint16_t)(sizeof(KERNEL_STR));
+}
+
 static void hello_kernel_fn(void) {
     printk(KERN_INFO "Kernel thread started.. \n");
 
-    while(!kthread_should_stop()) {
-        break;
+    while (!kthread_should_stop()) {
+        check_and_set_flag();
+        int err = set_write_ptr();
+        if (err)
+            break;
+        write_string_to_kernel_page();
     }
 
     printk(KERN_INFO "Kernel thread ended.. \n");
