@@ -105,7 +105,7 @@ static void write_string_to_kernel_page(void) {
     (*((uint8_t *)raw_pg + 1)) = (curr_sz & 0x00FF);
 }
 
-static void hello_kernel_fn(void) {
+static int hello_kernel_fn(void *data) {
     printk(KERN_INFO "Kernel thread started.. \n");
 
     while (!kthread_should_stop()) {
@@ -117,6 +117,7 @@ static void hello_kernel_fn(void) {
     }
 
     printk(KERN_INFO "Kernel thread ended.. \n");
+    return 0;
 }
 
 static const struct file_operations fops = {
