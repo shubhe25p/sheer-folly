@@ -61,19 +61,50 @@ static void check_and_set_flag(void) {
 }
 
 static int set_write_ptr(void) {
-    uint16_t curr_sz;
+     uint16_t curr_sz;
+    /*
+     * Why the fuck do we need the strange looking bit operation?
+     * 
+     * Let's take a step a back, I am on a little endian machine (M3)
+     * Format for first 16 bits:[-- 4 bit lock -- 12 bit curr size --]
+     *  0x10 0x00
+     * 0x100 0x101
+     * Now when we read, Little endian CPU thinks, lowest address
+     * is at 0x100 and MSB at 0x101
+     * So what's get stored in CPU register: 00 10
+     * How can we extract 12 bits now, think about it?
+     * CPU register = 0000(nimble 2) 0000(nimble 3) 0001(lock nimble don't touch) 0000(nimble 1)
+     * curr_sz (16 bits) should be: 0000 (nimble 0) << 12 | nimble 1 << 8 | nimble 2 << 4 | nimble 3
+     * 
+     * And to prevent this, we extract byte at a time
+     * (*(uint8_t *)raw_pg & 0x0F) this leaves the lock nimble untouched and gets nimble 1 and shifts it
+     * ((*((uint8_t *)raw_pg + 1) & 0xFF) this get us the lower byte
+     * SPENT 2 hrs trying to figure this shit out, and no AI help still!!
+     */
+    curr_sz = ((*(uint8_t *)raw_pg & 0x0F) << 8) |
+              ((*((uint8_t *)raw_pg + 1) & 0xFF));
 
-    curr_sz = ((*(uint16_t *)raw_pg) & 0x0FFF);
-    // raw_pg + 2 bytes MD + curr_sz
-    write_ptr = raw_pg + 2 + curr_sz;
+    write_ptr = raw_pg + MD_OFFSET + curr_sz;
     if (write_ptr > raw_pg + PAGE_SIZE)
-        return 1;
+        return 2;
+
     return 0;
 }
 
 static void write_string_to_kernel_page(void) {
-    strscpy(write_ptr, KERNEL_STR, sizeof(KERNEL_STR));
-    (*(uint16_t *)raw_pg) = ((*(uint16_t *)raw_pg) & 0x0FFF) + (uint16_t)(sizeof(KERNEL_STR));
+    uint16_t curr_sz;
+
+    strncpy(write_ptr, KERNEL_STR, sizeof(KERNEL_STR));
+
+    write_ptr += sizeof(KERNEL_STR);
+    curr_sz = write_ptr - raw_pg - MD_OFFSET;
+    /*
+     * If you want to know why this weird bit ops, look above
+     * reading and write to a multi byte pointer will lead to
+     * some weird behavior on little endian systems
+     */
+    (*(uint8_t *)raw_pg) = curr_sz >> 8;
+    (*((uint8_t *)raw_pg + 1)) = (curr_sz & 0x00FF);
 }
 
 static void hello_kernel_fn(void) {
