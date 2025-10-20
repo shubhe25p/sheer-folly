@@ -80,21 +80,22 @@ int main() {
     for (int i = 0; i < 100; i++) {
         err = check_and_set_flag();
         if (err) {
-            printf(DEVICE "Check and set flag failed!");
+            printf(DEVICE "Check and set flag failed!\n");
             goto out;
         }  
 
         err = set_write_ptr();
         if (err) {
-            printf(DEVICE "Setting write ptr failed");
+            printf(DEVICE "Setting write ptr failed\n");
             goto out;
         }
 
         err = write_string_to_kernel_page();
         if (err) {
-            printf(DEVICE "Writing string to kernel page failed");
+            printf(DEVICE "Writing string to kernel page failed\n");
             goto out;
         }
+        sleep(1);
     }
 
 out:

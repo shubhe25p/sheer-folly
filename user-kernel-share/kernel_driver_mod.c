@@ -8,6 +8,7 @@
 #include <linux/err.h>
 #include <asm/cmpxchg.h>
 #include <linux/kthread.h>
+#include <linux/delay.h>
 
 #define DEVICE_NAME "kernel_driver_mod"
 #define PAGE_SIZE 4096
@@ -114,6 +115,7 @@ static int hello_kernel_fn(void *data) {
         if (err)
             break;
         write_string_to_kernel_page();
+        msleep(1000);
     }
 
     printk(KERN_INFO "Kernel thread ended.. \n");
