@@ -11,6 +11,7 @@
 #define DEVICE_NAME "kernel_driver_mod"
 #define PAGE_SIZE 4096
 #define KERNEL_STR "Hello from Kernel\0"
+#define MD_OFFSET 2
 
 static int major;
 static void *raw_pg, *write_ptr;
@@ -39,9 +40,6 @@ static int dev_mmap(struct file *file, struct vm_area_struct *vma) {
 
     if(remap_pfn_range(vma, vma->vm_start, pfn, size, vma->vm_page_prot))
         return -EAGAIN;
-
-    uint8_t flag = 2;
-    (*(uint8_t *)raw_pg) = flag;
 
     return 0;
 }
@@ -85,7 +83,7 @@ static int set_write_ptr(void) {
               ((*((uint8_t *)raw_pg + 1) & 0xFF));
 
     write_ptr = raw_pg + MD_OFFSET + curr_sz;
-    if (write_ptr > raw_pg + PAGE_SIZE)
+    if (write_ptr + sizeof(KERNEL_STR) > raw_pg + PAGE_SIZE)
         return 2;
 
     return 0;
@@ -94,7 +92,7 @@ static int set_write_ptr(void) {
 static void write_string_to_kernel_page(void) {
     uint16_t curr_sz;
 
-    strncpy(write_ptr, KERNEL_STR, sizeof(KERNEL_STR));
+    strscpy(write_ptr, KERNEL_STR, sizeof(KERNEL_STR));
 
     write_ptr += sizeof(KERNEL_STR);
     curr_sz = write_ptr - raw_pg - MD_OFFSET;
