@@ -99,7 +99,7 @@ static void write_string_to_kernel_page(void) {
     write_ptr += sizeof(KERNEL_STR);
     curr_sz = write_ptr - raw_pg - MD_OFFSET;
     /*
-     * If you want to know why this weird bit ops, look above
+     * If you want to know why this weird bit ops look above,
      * reading and write to a multi byte pointer will lead to
      * some weird behavior on little endian systems
      */

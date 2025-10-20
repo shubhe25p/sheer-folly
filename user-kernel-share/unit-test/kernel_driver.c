@@ -19,6 +19,12 @@
     (((i) & 0x02) ? '1' : '0'),        \
     (((i) & 0x01) ? '1' : '0')
 
+enum DRIVER_STATUS {
+    DRIVER_OK = 0,
+    DRIVER_ERR = 1,
+    DRIVER_NOMEMORY = 2
+};
+
 static void *raw_pg, *write_ptr;
 
 static int test_setup(void) {
@@ -69,7 +75,7 @@ static int set_write_ptr(uint16_t *sz) {
               ((*((uint8_t *)raw_pg + 1) & 0xFF));
 
     write_ptr = raw_pg + MD_OFFSET + curr_sz;
-    if (write_ptr > raw_pg + PAGE_SIZE)
+    if (write_ptr + sizeof(KERNEL_STR) > raw_pg + PAGE_SIZE)
         return 2;
 
     *sz = curr_sz;
@@ -81,10 +87,9 @@ static int write_string_to_kernel_page(void) {
 
     strncpy(write_ptr, KERNEL_STR, sizeof(KERNEL_STR));
 
-    write_ptr += sizeof(KERNEL_STR);
-    curr_sz = write_ptr - raw_pg - MD_OFFSET;
+    curr_sz = write_ptr + sizeof(KERNEL_STR) - raw_pg - MD_OFFSET;
     /*
-     * If you want to know why this weird bit ops, look above
+     * If you want to know why this weird bit ops look above,
      * reading and write to a multi byte pointer will lead to
      * some weird behavior on little endian systems
      */
@@ -107,36 +112,37 @@ static int test_mw(void) {
         goto out;
     }
 
-    for (int i = 0; i < 20; i++) {
+    for (int i = 0; i < 911; i++) {
+
         err = check_and_set_flag(&expected, &desired);
         if (err) {
-            printf("Check and set flag failed!");
+            printf(DEVICE_NAME "Check and set flag failed!\n");
             nerr++;
             goto out;
         }
         err = set_write_ptr(&curr_sz);
         if (err) {
-            printf("Setting write ptr failed");
+            printf(DEVICE_NAME "Setting write ptr failed!\n");
             nerr++;
             goto out;
         }
 
         err = write_string_to_kernel_page();
         if (err) {
-            printf("Writing string to kernel page failed");
+            printf(DEVICE_NAME "Writing string to kernel page failed");
             nerr++;
             goto out;
         }
-        printf("raw pg first 8 bits: " PRINTF_BINARY_PATTERN_INT8 "\t", 
-           PRINTF_BYTE_TO_BINARY_INT8((*(uint8_t *)raw_pg)));
-        printf("raw pg next 8 bits: " PRINTF_BINARY_PATTERN_INT8 "\n",
-           PRINTF_BYTE_TO_BINARY_INT8((*((uint8_t *)raw_pg + 1))));
+        // printf(DEVICE_NAME "raw pg first 8 bits: " PRINTF_BINARY_PATTERN_INT8 "\t", 
+        //    PRINTF_BYTE_TO_BINARY_INT8((*(uint8_t *)raw_pg)));
+        // printf(DEVICE_NAME "raw pg next 8 bits: " PRINTF_BINARY_PATTERN_INT8 "\n",
+        //    PRINTF_BYTE_TO_BINARY_INT8((*((uint8_t *)raw_pg + 1))));
     }
 
     return 0;
 out: 
     if(err == 2) {
-        printf("Page full\n");
+        printf(DEVICE_NAME "Page full\n");
         return 0;
     }
     return -1;
@@ -160,27 +166,27 @@ int main() {
     (*(uint8_t *)raw_pg) = 0b00001010;
     err = check_and_set_flag(&expected, &desired);
     if (err) {
-        printf("Check and set flag failed!");
+        printf(DEVICE_NAME "Check and set flag failed!");
         nerr++;
         goto out;
     }
 
     if (expected != 0b00001010) {
         nerr++;
-        printf("Expected Value in binary: " PRINTF_BINARY_PATTERN_INT8 "\n",
+        printf(DEVICE_NAME "Expected Value in binary: " PRINTF_BINARY_PATTERN_INT8 "\n",
            PRINTF_BYTE_TO_BINARY_INT8(expected));
         goto out;
     }
 
     if (desired != 0b00011010) {
         nerr++;
-        printf("Desired Value in binary: " PRINTF_BINARY_PATTERN_INT8 "\n",
+        printf(DEVICE_NAME "Desired Value in binary: " PRINTF_BINARY_PATTERN_INT8 "\n",
            PRINTF_BYTE_TO_BINARY_INT8(desired));
         goto out;
     }
     if ((*(uint8_t *)raw_pg & 0xFF) != 0b00011010) {
         nerr++;
-        printf("Desired Value in binary: " PRINTF_BINARY_PATTERN_INT8 "\n",
+        printf(DEVICE_NAME "Desired Value in binary: " PRINTF_BINARY_PATTERN_INT8 "\n",
            PRINTF_BYTE_TO_BINARY_INT8(desired));
         goto out;
     }
@@ -196,18 +202,18 @@ int main() {
 
     err = set_write_ptr(&curr_sz);
     if (err) {
-        printf("Setting write ptr failed");
+        printf(DEVICE_NAME "Setting write ptr failed");
         nerr++;
         goto out;
     }
     if(curr_sz != 0) {
         nerr++;
-        printf("curr sz should be zero for empty page, found = %d\n", curr_sz);
+        printf(DEVICE_NAME "curr sz should be zero for empty page, found = %d\n", curr_sz);
         goto out;
     }
     if (write_ptr != (raw_pg + MD_OFFSET)) {
         nerr++;
-        printf("write ptr not set correctly");
+        printf(DEVICE_NAME "write ptr not set correctly");
         goto out;
     }
 
@@ -215,26 +221,26 @@ int main() {
 
     err = write_string_to_kernel_page();
     if (err) {
-        printf("Writing string to kernel page failed");
+        printf(DEVICE_NAME "Writing string to kernel page failed");
         nerr++;
         goto out;
     }
     
     if (*(uint16_t *)raw_pg != 4608){
-        printf("raw pg MD not updated properly \n");
+        printf(DEVICE_NAME "raw pg MD not updated properly \n");
         nerr++;
         goto out;
     }
     printf(DEVICE_NAME "Write to kernel page Done\n");
 
     memcpy(msg, ((char *)raw_pg + 2), sizeof(KERNEL_STR));
-    printf("Message: %s\n", msg);
+    printf(DEVICE_NAME "Message: %s\n", msg);
 
     free(raw_pg);
 
     err = test_mw();
     if (err) {
-        printf("Multiple write failed \n");
+        printf(DEVICE_NAME "Multiple write failed \n");
         nerr++;
         goto out;
     }
@@ -245,10 +251,10 @@ int main() {
     goto success;
     
 out:
-    printf(" Unit test failed!");
+    printf(DEVICE_NAME " Unit test failed!");
 
 success:
     if(nerr == 0)
-        printf("Unit test passed");
+        printf(DEVICE_NAME "Unit test passed");
 }
 
