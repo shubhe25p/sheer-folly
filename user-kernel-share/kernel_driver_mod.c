@@ -7,6 +7,7 @@
 #include <linux/string.h>
 #include <linux/err.h>
 #include <asm/cmpxchg.h>
+#include <linux/kthread.h>
 
 #define DEVICE_NAME "kernel_driver_mod"
 #define PAGE_SIZE 4096
@@ -55,7 +56,7 @@ static void check_and_set_flag(void) {
         expected = *(volatile uint8_t *)raw_pg;
         desired = 0x10 | (expected & 0x0F);
 
-    } while (cmpxchg((uint8_t *)raw_pg, expected, desired) != expected)
+    } while (cmpxchg((uint8_t *)raw_pg, expected, desired) != expected);
 }
 
 static int set_write_ptr(void) {
@@ -94,8 +95,7 @@ static void write_string_to_kernel_page(void) {
 
     strscpy(write_ptr, KERNEL_STR, sizeof(KERNEL_STR));
 
-    write_ptr += sizeof(KERNEL_STR);
-    curr_sz = write_ptr - raw_pg - MD_OFFSET;
+    curr_sz = write_ptr + sizeof(KERNEL_STR) - raw_pg - MD_OFFSET;
     /*
      * If you want to know why this weird bit ops look above,
      * reading and write to a multi byte pointer will lead to
